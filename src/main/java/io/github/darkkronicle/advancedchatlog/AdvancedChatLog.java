@@ -7,8 +7,10 @@
  */
 package io.github.darkkronicle.advancedchatlog;
 
+import fi.dy.masa.malilib.event.WorldLoadHandler;
 import fi.dy.masa.malilib.util.FileUtils;
 import io.github.darkkronicle.advancedchatcore.ModuleHandler;
+import io.github.darkkronicle.advancedchatlog.listener.WorldListener;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -39,6 +41,8 @@ public class AdvancedChatLog implements ClientModInitializer {
         // This will run after AdvancedChatCore's because of load order
         ModuleHandler.getInstance().registerInitHandler(MOD_ID, 1, new ChatLogInitHandler());
         setupLogger();
+
+        WorldLoadHandler.getInstance().registerWorldLoadPostHandler(new WorldListener());
     }
 
     private static void setupLogger() {

@@ -11,69 +11,101 @@ import com.google.gson.JsonObject;
 import io.github.darkkronicle.advancedchatcore.chat.ChatMessage;
 import io.github.darkkronicle.advancedchatcore.interfaces.IJsonSave;
 import io.github.darkkronicle.advancedchatlog.config.ChatLogConfigStorage;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 
 @Environment(EnvType.CLIENT)
 public class LogChatMessageSerializer implements IJsonSave<LogChatMessage> {
 
-    private DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+	private DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    public LogChatMessageSerializer() {}
+	private static Text.Serializer textSerializer = null;
 
-    private Style cleanStyle(Style style) {
-        if (!ChatLogConfigStorage.General.CLEAN_SAVE.config.getBooleanValue()) {
-            return style;
-        }
-        style = style.withClickEvent(null);
-        style = style.withHoverEvent(null);
-        style = style.withInsertion(null);
-        return style;
-    }
+	public static Text.Serializer getOrCreateTextSerializer() {
+		if (textSerializer != null) {
+			return textSerializer;
+		}
 
-    private Text transfer(Text text) {
-        // Using the built in serializer LiteralText is required
-        Text base = Text.empty();
-        for (Text t : text.getSiblings()) {
-            Text newT = Text.literal(t.getString()).fillStyle(cleanStyle(t.getStyle()));
-            base.getSiblings().add(newT);
-        }
-        return base;
-    }
+		if (MinecraftClient.getInstance().world == null) {
+			return null;
+		}
+		RegistryWrapper.WrapperLookup registries = MinecraftClient.getInstance().world.getRegistryManager();
+		textSerializer = new Text.Serializer(registries);
+		return textSerializer;
+	}
 
-    @Override
-    public LogChatMessage load(JsonObject obj) {
-        LocalDateTime dateTime = LocalDateTime.from(formatter.parse(obj.get("time").getAsString()));
-        LocalDate date = dateTime.toLocalDate();
-        LocalTime time = dateTime.toLocalTime();
-        Text display = Text.Serialization.fromJsonTree(obj.get("display"));
-        Text original = Text.Serialization.fromJsonTree(obj.get("original"));
-        int stacks = obj.get("stacks").getAsByte();
-        ChatMessage message =
-                ChatMessage.builder()
-                        .time(time)
-                        .displayText(display)
-                        .originalText(original)
-                        .build();
-        LogChatMessage log = new LogChatMessage(message, date);
-        return log;
-    }
+	public LogChatMessageSerializer() {
+	}
 
-    @Override
-    public JsonObject save(LogChatMessage message) {
-        JsonObject json = new JsonObject();
-        ChatMessage chat = message.getMessage();
-        LocalDateTime dateTime = LocalDateTime.of(message.getDate(), chat.getTime());
-        json.addProperty("time", formatter.format(dateTime));
-        json.addProperty("stacks", chat.getStacks());
-        json.add("display", Text.Serialization.toJsonTree(transfer(chat.getDisplayText())));
-        json.add("original", Text.Serialization.toJsonTree(transfer(chat.getOriginalText())));
-        return json;
-    }
+	private Style cleanStyle(Style style) {
+		if (!ChatLogConfigStorage.General.CLEAN_SAVE.config.getBooleanValue()) {
+			return style;
+		}
+		style = style.withClickEvent(null);
+		style = style.withHoverEvent(null);
+		style = style.withInsertion(null);
+		return style;
+	}
+
+	private Text transfer(Text text) {
+		// Using the built in serializer LiteralText is required
+		Text base = Text.empty();
+		for (Text t : text.getSiblings()) {
+			Text newT = Text.literal(t.getString()).fillStyle(cleanStyle(t.getStyle()));
+			base.getSiblings().add(newT);
+		}
+		return base;
+	}
+
+	@Override
+	public LogChatMessage load(JsonObject obj) {
+		LocalDateTime dateTime = LocalDateTime.from(formatter.parse(obj.get("time").getAsString()));
+		LocalDate date = dateTime.toLocalDate();
+		LocalTime time = dateTime.toLocalTime();
+
+		Text.Serializer textSerializer = getOrCreateTextSerializer();
+		if (textSerializer == null) {
+			return null;
+		}
+
+		Text display = textSerializer.deserialize(obj.get("display"), null, null);
+		Text original = textSerializer.deserialize(obj.get("original"), null, null);
+		int stacks = obj.get("stacks").getAsByte();
+		ChatMessage message =
+				ChatMessage.builder()
+						.time(time)
+						.displayText(display)
+						.originalText(original)
+						.build();
+		return new LogChatMessage(message, date);
+	}
+
+	@Override
+	public JsonObject save(LogChatMessage message) {
+		JsonObject json = new JsonObject();
+		ChatMessage chat = message.getMessage();
+		LocalDateTime dateTime = LocalDateTime.of(message.getDate(), chat.getTime());
+		json.addProperty("time", formatter.format(dateTime));
+		json.addProperty("stacks", chat.getStacks());
+
+		Text.Serializer textSerializer = getOrCreateTextSerializer();
+		if (textSerializer == null) {
+			return null;
+		}
+
+		json.add("display", textSerializer.serialize(transfer(chat.getDisplayText()), null, null));
+		json.add("original", textSerializer.serialize(transfer(chat.getOriginalText()), null, null));
+		return json;
+	}
+
 }

@@ -1,14 +1,14 @@
 import javax.net.ssl.HttpsURLConnection
 
 plugins {
-	id 'fabric-loom' version '1.4-SNAPSHOT'
+	id 'fabric-loom' version '1.6-SNAPSHOT'
 	id 'maven-publish'
 	id "io.freefair.lombok" version "8.4"
 	id "com.diffplug.spotless" version "6.22.0"
 }
 
-sourceCompatibility = JavaVersion.VERSION_17
-targetCompatibility = JavaVersion.VERSION_17
+sourceCompatibility = JavaVersion.VERSION_21
+targetCompatibility = JavaVersion.VERSION_21
 
 archivesBaseName = project.archives_base_name
 version = "${project.minecraft_version}-${project.mod_version}"
@@ -24,6 +24,7 @@ repositories {
 	mavenCentral()
 	maven { url 'https://masa.dy.fi/maven' }
 	maven { url 'https://jitpack.io' }
+	maven { url 'https://repo.fabim.de/repository/maven-public/' }
 }
 
 dependencies {
@@ -46,7 +47,7 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.encoding = "UTF-8"
-	it.options.release = 17
+	it.options.release = 21
 }
 
 tasks.register('sourcesJar', Jar) {
@@ -56,15 +57,16 @@ tasks.register('sourcesJar', Jar) {
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
 }
 
 jar {
 	from "LICENSE.txt"
 }
 
-spotless {
+//Fabim start
+/*spotless {
 	ratchetFrom 'origin/main'
 	format 'misc', {
 		// define the files to apply `misc` to
@@ -75,11 +77,12 @@ spotless {
 		indentWithTabs() // or spaces. Takes an integer argument if you don't like 4
 		endWithNewline()
 	}
-	java {
-		target 'src/*/java/**/*.java'
-		licenseHeaderFile "HEADER.txt"
+	java {*/
+//		target 'src/*/java/**/*.java'
+/*		licenseHeaderFile "HEADER.txt"
 	}
-}
+}*/
+//Fabim end
 
 // configure the maven publication
 publishing {
@@ -97,57 +100,12 @@ publishing {
 
 	// select the repositories you want to publish to
 	repositories {
-		// uncomment to publish to the local maven
-		// mavenLocal()
-	}
-}
-
-tasks.register('discord') {
-	dependsOn build
-
-	doLast {
-		String webhook
-		if (additionalProperties["discord_webhook"] != null) {
-			webhook = additionalProperties["discord_webhook"]
-		} else if (System.getenv("discord_webhook") != null) {
-			webhook = System.getenv("discord_webhook")
-		} else {
-			System.out.println("No webhook found...")
-			return
+		repositories {
+			maven {
+				name = "fabimRepo"
+				url = uri("https://repo.fabim.de/repository/maven-mixed/")
+				credentials(PasswordCredentials.class)
+			}
 		}
-
-		String commitHash = 'git rev-parse --verify --short HEAD'.execute().text.trim()
-
-		File file = remapJar.archiveFile.get().asFile
-		String fileName = "$project.archives_base_name}-${project.mod_version}-${commitHash}.jar"
-		String text = "<:Kronos:799707832399691867> **${project.archives_base_name} v${project.mod_version}-${commitHash} for ${project.minecraft_version}**"
-		URL url = new URL(webhook)
-		HttpsURLConnection connection = (HttpsURLConnection) url.openConnection()
-
-		def cmdLine = "git log --format=%B -n 1"
-		def procCommit = cmdLine.execute()
-		String changeLog = procCommit.in.getText()
-		text = text + "\n" + changeLog
-
-		String boundary = UUID.randomUUID().toString()
-		connection.setRequestMethod("POST")
-		connection.setDoOutput(true)
-		connection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary)
-		DataOutputStream stream = new DataOutputStream(connection.getOutputStream());
-
-		stream.writeBytes("--" + boundary + "\r\n")
-		stream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n\r\n")
-		stream.write(Files.readAllBytes(file.toPath()))
-		stream.writeBytes("\r\n")
-		stream.writeBytes("--" + boundary + "\r\n");
-		stream.writeBytes('Content-Disposition: form-data; name="content"\r\n\r\n' + text + '\r\n')
-		stream.writeBytes("--" + boundary + "--\r\n")
-
-		stream.flush()
-		stream.close()
-
-		connection.getInputStream().close()
-		connection.disconnect()
 	}
-
 }
