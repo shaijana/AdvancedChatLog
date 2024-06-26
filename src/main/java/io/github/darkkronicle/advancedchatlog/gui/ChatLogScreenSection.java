@@ -25,7 +25,7 @@ import net.minecraft.util.Identifier;
 @Environment(EnvType.CLIENT)
 public class ChatLogScreenSection extends AdvancedChatScreenSection {
 
-    private final static Identifier LOG_ICON = new Identifier(AdvancedChatLog.MOD_ID, "textures/gui/log.png");
+    private final static Identifier LOG_ICON = Identifier.of(AdvancedChatLog.MOD_ID, "textures/gui/log.png");
 
     public ChatLogScreenSection(AdvancedChatScreen screen) {
         super(screen);
