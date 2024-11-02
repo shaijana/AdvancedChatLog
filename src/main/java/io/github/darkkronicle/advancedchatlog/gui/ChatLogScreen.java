@@ -121,7 +121,7 @@ public class ChatLogScreen extends GuiBase {
                 textRenderer,
                 (textFieldRunnable -> {
                     if (client.player != null) {
-                        client.player.sendMessage(Text.of(textFieldRunnable.getText()));
+                        client.player.sendMessage(Text.of(textFieldRunnable.getText()), false);
                     }
                     textFieldRunnable.setText("");
                 })
